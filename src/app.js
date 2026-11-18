@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const pool = require('./config/db');
+const authRoutes = require('./routes/auth.routes');
 const productoRoutes = require('./routes/producto.routes');
 const { rutaNoEncontrada, manejadorErrores } = require('./middlewares/error.middleware');
 
@@ -27,7 +28,7 @@ app.get('/api/health', async (req, res, next) => {
 });
 
 // Rutas de la API
-// app.use('/api/auth', authRoutes); // Fase 3
+app.use('/api/auth', authRoutes);
 app.use('/api/productos', productoRoutes);
 // app.use('/api/favoritos', favoritosRoutes); // Fase 4
 

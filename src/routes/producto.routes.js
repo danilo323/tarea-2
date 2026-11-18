@@ -6,6 +6,7 @@ const {
   actualizarProducto,
   eliminarProducto,
 } = require('../controllers/producto.controller');
+const { verificarToken, verificarAdmin } = require('../middlewares/auth.middleware');
 
 const router = express.Router();
 
@@ -13,9 +14,9 @@ const router = express.Router();
 router.get('/', listarProductos);
 router.get('/:id', obtenerProductoPorId);
 
-// En la Fase 3 se agregarán los middlewares verificarToken y verificarAdmin a POST, PUT y DELETE
-router.post('/', crearProducto);
-router.put('/:id', actualizarProducto);
-router.delete('/:id', eliminarProducto);
+// Rutas protegidas (requieren JWT válido y rol 'admin')
+router.post('/', verificarToken, verificarAdmin, crearProducto);
+router.put('/:id', verificarToken, verificarAdmin, actualizarProducto);
+router.delete('/:id', verificarToken, verificarAdmin, eliminarProducto);
 
 module.exports = router;

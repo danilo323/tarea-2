@@ -56,7 +56,13 @@ psql -U postgres -c "CREATE DATABASE catalogo_db;"
 psql -U postgres -d catalogo_db -f database/init.sql
 ```
 
-### 4. Iniciar el servidor
+### 4. Inicializar el usuario administrador
+Ejecuta el script idempotente para crear o actualizar la cuenta con rol `admin` configurada en `.env` (`ADMIN_NAME`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`):
+```bash
+npm run seed:admin
+```
+
+### 5. Iniciar el servidor
 * **Modo desarrollo (con recarga automática):**
   ```bash
   npm run dev
@@ -66,7 +72,7 @@ psql -U postgres -d catalogo_db -f database/init.sql
   npm start
   ```
 
-### 5. Verificar estado del servidor y conexión a PostgreSQL
+### 6. Verificar estado del servidor y conexión a PostgreSQL
 Realiza una petición `GET` a:
 ```text
 http://localhost:3000/api/health
@@ -75,9 +81,109 @@ Si la conexión es exitosa, responderá con código `200` y la cantidad de produ
 
 ---
 
+## Autenticación y Control de Acceso (`/api/auth`)
+
+Las rutas protegidas requieren el encabezado HTTP:
+```text
+Authorization: Bearer <TOKEN_JWT>
+```
+
+| Método | Ruta | Acceso | Descripción | Código de éxito |
+| :--- | :--- | :--- | :--- | :--- |
+| `POST` | `/api/auth/registro` | Público | Registra un usuario (siempre con rol `usuario`) | `201 Created` |
+| `POST` | `/api/auth/login` | Público | Autentica credenciales y devuelve un JWT firmado | `200 OK` |
+
+### Regla de Contraseña Segura
+En `POST /api/auth/registro`, la contraseña debe cumplir:
+* Mínimo **8 caracteres**
+* Al menos **1 letra mayúscula**
+* Al menos **1 número**
+* Al menos **1 carácter especial** (no alfanumérico)
+
+> El registro público ignora cualquier campo `rol` enviado en el cuerpo de la petición y asigna siempre `'usuario'`.
+
+### Cuerpos de Petición y Respuestas (`/api/auth`)
+
+#### `POST /api/auth/registro`
+**Body JSON:**
+```json
+{
+  "nombre": "Ana García",
+  "correo": "ana@ejemplo.com",
+  "password": "Password123!"
+}
+```
+**Respuesta (`201 Created`):**
+```json
+{
+  "mensaje": "Usuario registrado exitosamente",
+  "usuario": {
+    "id": 2,
+    "nombre": "Ana García",
+    "correo": "ana@ejemplo.com",
+    "rol": "usuario",
+    "creado_en": "2026-11-18T00:35:00.000Z"
+  }
+}
+```
+
+#### `POST /api/auth/login`
+**Body JSON:**
+```json
+{
+  "correo": "ana@ejemplo.com",
+  "password": "Password123!"
+}
+```
+**Respuesta (`200 OK`):**
+```json
+{
+  "mensaje": "Inicio de sesión exitoso",
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "usuario": {
+    "id": 2,
+    "nombre": "Ana García",
+    "correo": "ana@ejemplo.com",
+    "rol": "usuario"
+  }
+}
+```
+
+### Códigos de Error de Autenticación y Autorización (`401`, `403`, `409`)
+
+* **`401 Unauthorized`** — Falta el token, el formato `Bearer` es incorrecto, el token expiró, la firma es inválida o las credenciales de login son incorrectas:
+  ```json
+  {
+    "error": "No autorizado",
+    "mensaje": "Token de autenticación no proporcionado o formato inválido"
+  }
+  ```
+  ```json
+  {
+    "error": "Credenciales inválidas",
+    "mensaje": "Correo o contraseña incorrectos"
+  }
+  ```
+* **`403 Forbidden`** — El usuario está autenticado con un JWT válido, pero su rol no es `'admin'`:
+  ```json
+  {
+    "error": "Acceso denegado",
+    "mensaje": "Se requiere rol de administrador para realizar esta operación"
+  }
+  ```
+* **`409 Conflict`** — Intento de registrar un correo electrónico que ya existe en `usuarios`:
+  ```json
+  {
+    "error": "Correo duplicado",
+    "mensaje": "Ya existe una cuenta registrada con este correo electrónico"
+  }
+  ```
+
+---
+
 ## Endpoints del Catálogo de Productos (`/api/productos`)
 
-> **Nota de Fase 2:** Los endpoints CRUD de `/api/productos` operan actualmente con persistencia real en PostgreSQL sin protección JWT/RBAC, la cual se integrará en la Fase 3 para `POST`, `PUT` y `DELETE`.
+> **Control de acceso (Fase 3):** `GET /api/productos` y `GET /api/productos/:id` son públicos. Las operaciones de escritura (`POST`, `PUT` y `DELETE`) requieren un JWT válido (`verificarToken`) y rol `'admin'` (`verificarAdmin`).
 
 | Método | Ruta | Descripción | Código de éxito |
 | :--- | :--- | :--- | :--- |
