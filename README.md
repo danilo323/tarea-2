@@ -292,3 +292,113 @@ La API diferencia de forma estricta entre errores sintácticos/estructurales (`4
     "mensaje": "No existe un producto con el ID especificado"
   }
   ```
+
+---
+
+## Endpoints de Favoritos Personales (`/api/favoritos`)
+
+Todas las rutas de `/api/favoritos` están protegidas mediante el middleware `verificarToken` y requieren el encabezado `Authorization: Bearer <TOKEN_JWT>`.
+
+### Aislamiento por Identidad del Token JWT y Consistencia en Cascada
+* **Aislamiento estricto (`req.usuario.id`):** El identificador del usuario propietario se extrae **exclusivamente** del payload verificado del JWT (`req.usuario.id`). Cualquier `usuario_id` o `usuarioId` enviado manualmente por el cliente en `body`, `params` o `query` es ignorado por completo, impidiendo consultar o eliminar favoritos de otros usuarios.
+* **Consistencia Referencial (`ON DELETE CASCADE`):** La tabla `favoritos` referencia a `productos(id)` con `ON DELETE CASCADE`. Si un administrador elimina un producto del catálogo (`DELETE /api/productos/:id`), PostgreSQL elimina automáticamente las filas asociadas en `favoritos` para todos los usuarios, evitando referencias huérfanas.
+
+| Método | Ruta | Acceso | Descripción | Código de éxito |
+| :--- | :--- | :--- | :--- | :--- |
+| `GET` | `/api/favoritos` | Autenticado (`usuario` / `admin`) | Lista los productos favoritos del usuario autenticado | `200 OK` |
+| `POST` | `/api/favoritos` | Autenticado (`usuario` / `admin`) | Agrega un producto del catálogo a favoritos | `201 Created` |
+| `DELETE` | `/api/favoritos/:productoId` | Autenticado (`usuario` / `admin`) | Elimina un producto de los favoritos del usuario autenticado | `200 OK` |
+
+### Cuerpos de Petición y Respuestas (`/api/favoritos`)
+
+#### `POST /api/favoritos`
+**Body JSON** (acepta `productoId` o `producto_id`):
+```json
+{
+  "productoId": 1
+}
+```
+**Respuesta (`201 Created`):**
+```json
+{
+  "mensaje": "Producto agregado a favoritos exitosamente",
+  "favorito": {
+    "id": 1,
+    "usuario_id": 2,
+    "producto_id": 1,
+    "agregado_en": "2026-11-18T00:40:00.000Z"
+  },
+  "producto": {
+    "id": 1,
+    "nombre": "Teclado Mecánico Keychron K2",
+    "descripcion": "Teclado mecánico inalámbrico compacto al 75% con switches táctiles Gateron Brown y retroiluminación RGB.",
+    "categoria": "Perifericos",
+    "precio": 89.99,
+    "creado_en": "2026-11-17T04:15:00.000Z"
+  }
+}
+```
+
+#### `GET /api/favoritos` (`200 OK`)
+```json
+[
+  {
+    "favorito_id": 1,
+    "producto_id": 1,
+    "agregado_en": "2026-11-18T00:40:00.000Z",
+    "nombre": "Teclado Mecánico Keychron K2",
+    "descripcion": "Teclado mecánico inalámbrico compacto al 75% con switches táctiles Gateron Brown y retroiluminación RGB.",
+    "categoria": "Perifericos",
+    "precio": 89.99
+  }
+]
+```
+
+#### `DELETE /api/favoritos/:productoId` (`200 OK`)
+```json
+{
+  "mensaje": "Producto eliminado de favoritos correctamente",
+  "favorito": {
+    "id": 1,
+    "usuario_id": 2,
+    "producto_id": 1
+  }
+}
+```
+
+### Errores de Favoritos (`400`, `401`, `404` y `409`)
+
+* **`400 Bad Request`** — Falta `productoId` o no es un entero positivo estricto:
+  ```json
+  {
+    "error": "Campo obligatorio faltante",
+    "mensaje": "Debe proporcionar el campo productoId"
+  }
+  ```
+  ```json
+  {
+    "error": "ID de producto inválido",
+    "mensaje": "El identificador del producto debe ser un número entero positivo"
+  }
+  ```
+* **`401 Unauthorized`** — Token ausente, inválido o expirado.
+* **`404 Not Found`** — El producto no existe en el catálogo al intentar agregarlo, o no está en la lista de favoritos del usuario autenticado al intentar eliminarlo:
+  ```json
+  {
+    "error": "Producto no encontrado",
+    "mensaje": "El producto que intenta agregar a favoritos no existe en el catálogo"
+  }
+  ```
+  ```json
+  {
+    "error": "Favorito no encontrado",
+    "mensaje": "El producto especificado no se encuentra en su lista de favoritos"
+  }
+  ```
+* **`409 Conflict`** — El producto ya fue agregado previamente a los favoritos del usuario:
+  ```json
+  {
+    "error": "Favorito duplicado",
+    "mensaje": "Este producto ya se encuentra en su lista de favoritos"
+  }
+  ```

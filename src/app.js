@@ -4,6 +4,7 @@ const cors = require('cors');
 const pool = require('./config/db');
 const authRoutes = require('./routes/auth.routes');
 const productoRoutes = require('./routes/producto.routes');
+const favoritoRoutes = require('./routes/favorito.routes');
 const { rutaNoEncontrada, manejadorErrores } = require('./middlewares/error.middleware');
 
 const app = express();
@@ -30,7 +31,7 @@ app.get('/api/health', async (req, res, next) => {
 // Rutas de la API
 app.use('/api/auth', authRoutes);
 app.use('/api/productos', productoRoutes);
-// app.use('/api/favoritos', favoritosRoutes); // Fase 4
+app.use('/api/favoritos', favoritoRoutes);
 
 // Manejo de rutas no encontradas y errores globales
 app.use(rutaNoEncontrada);
