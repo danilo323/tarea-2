@@ -402,3 +402,53 @@ Todas las rutas de `/api/favoritos` están protegidas mediante el middleware `ve
     "mensaje": "Este producto ya se encuentra en su lista de favoritos"
   }
   ```
+
+---
+
+## Tabla Resumen de Endpoints y Códigos HTTP
+
+| Recurso | Método | Endpoint | Acceso / Rol | Códigos HTTP posibles |
+| :--- | :--- | :--- | :--- | :--- |
+| Salud | `GET` | `/api/health` | Público | `200`, `500` |
+| Autenticación | `POST` | `/api/auth/registro` | Público (asigna rol `usuario`) | `201`, `400`, `409`, `422`, `500` |
+| Autenticación | `POST` | `/api/auth/login` | Público | `200`, `400`, `401`, `500` |
+| Productos | `GET` | `/api/productos` | Público (soporta `?categoria=...`) | `200`, `500` |
+| Productos | `GET` | `/api/productos/:id` | Público | `200`, `400`, `404`, `500` |
+| Productos | `POST` | `/api/productos` | JWT + Rol `admin` | `201`, `400`, `401`, `403`, `422`, `500` |
+| Productos | `PUT` | `/api/productos/:id` | JWT + Rol `admin` | `200`, `400`, `401`, `403`, `404`, `422`, `500` |
+| Productos | `DELETE` | `/api/productos/:id` | JWT + Rol `admin` | `200`, `400`, `401`, `403`, `404`, `500` |
+| Favoritos | `GET` | `/api/favoritos` | JWT (`usuario` / `admin`) | `200`, `401`, `500` |
+| Favoritos | `POST` | `/api/favoritos` | JWT (`usuario` / `admin`) | `201`, `400`, `401`, `404`, `409`, `500` |
+| Favoritos | `DELETE` | `/api/favoritos/:productoId` | JWT (`usuario` / `admin`) | `200`, `400`, `401`, `404`, `500` |
+
+---
+
+## Pruebas Reproducibles con Postman
+
+El repositorio incluye una colección automatizada (`postman/Catalogo_API.postman_collection.json`) y su archivo de entorno (`postman/Catalogo_Env.postman_environment.json`) listos para ejecutarse de extremo a extremo sin intervención manual.
+
+### Requisitos previos antes de ejecutar las pruebas
+1. Tener PostgreSQL activo con el esquema cargado (`database/init.sql`).
+2. Haber ejecutado el script de inicialización del administrador:
+   ```bash
+   npm run seed:admin
+   ```
+3. Tener el servidor corriendo en el puerto configurado (`3000` por defecto):
+   ```bash
+   npm run dev
+   ```
+
+### Pasos de importación y ejecución con Collection Runner
+1. Abre **Postman** y haz clic en **Import**.
+2. Selecciona e importa ambos archivos desde la carpeta `postman/`:
+   * `postman/Catalogo_API.postman_collection.json`
+   * `postman/Catalogo_Env.postman_environment.json`
+3. En la esquina superior derecha de Postman, selecciona el entorno activo **`Catalogo API - Entorno Local`**.
+4. Haz clic en los tres puntos (`...`) junto a la colección **`Catálogo de Productos y Favoritos API`** y selecciona **Run collection**.
+5. Verifica que las 4 carpetas aparezcan en orden secuencial (`01` a `04`) y haz clic en **Run Catálogo de Productos y Favoritos API**.
+
+### Encadenamiento automático de variables
+No necesitas copiar tokens ni editar IDs manualmente:
+* Los scripts `Pre-request` de registro generan correos únicos dinámicos (`userAEmail`, `userBEmail`).
+* Los scripts `Tests` de login almacenan automáticamente `tokenUsuarioA`, `tokenUsuarioB` y `tokenAdmin`.
+* El script `Tests` de creación de producto guarda `productoCreadoId`, el cual se reutiliza automáticamente en las pruebas de actualización (`PUT`), favoritos (`POST /api/favoritos`), eliminación (`DELETE /api/productos/{{productoCreadoId}}`) y verificación de consistencia en cascada (`ON DELETE CASCADE`).
