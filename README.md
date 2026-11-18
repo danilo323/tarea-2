@@ -72,3 +72,117 @@ Realiza una petición `GET` a:
 http://localhost:3000/api/health
 ```
 Si la conexión es exitosa, responderá con código `200` y la cantidad de productos registrados en la base de datos.
+
+---
+
+## Endpoints del Catálogo de Productos (`/api/productos`)
+
+> **Nota de Fase 2:** Los endpoints CRUD de `/api/productos` operan actualmente con persistencia real en PostgreSQL sin protección JWT/RBAC, la cual se integrará en la Fase 3 para `POST`, `PUT` y `DELETE`.
+
+| Método | Ruta | Descripción | Código de éxito |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/productos` | Lista todos los productos ordenados por `id` | `200 OK` |
+| `GET` | `/api/productos?categoria=Perifericos` | Filtra productos por categoría (insensible a mayúsculas/minúsculas) | `200 OK` |
+| `GET` | `/api/productos/:id` | Obtiene el detalle de un producto específico por `id` | `200 OK` |
+| `POST` | `/api/productos` | Crea un nuevo producto en el catálogo | `201 Created` |
+| `PUT` | `/api/productos/:id` | Actualiza todos los campos de un producto existente | `200 OK` |
+| `DELETE` | `/api/productos/:id` | Elimina un producto del catálogo por `id` | `200 OK` |
+
+### Cuerpos de Petición (`body` JSON)
+
+#### `POST /api/productos` y `PUT /api/productos/:id`
+```json
+{
+  "nombre": "Webcam Logitech Brio 4K",
+  "descripcion": "Cámara web Ultra HD 4K con HDR y micrófonos duales con cancelación de ruido.",
+  "categoria": "Perifericos",
+  "precio": 169.99
+}
+```
+
+### Ejemplos de Respuestas Exitosas
+
+#### `GET /api/productos` (`200 OK`)
+```json
+[
+  {
+    "id": 1,
+    "nombre": "Teclado Mecánico Keychron K2",
+    "descripcion": "Teclado mecánico inalámbrico compacto al 75% con switches táctiles Gateron Brown y retroiluminación RGB.",
+    "categoria": "Perifericos",
+    "precio": 89.99,
+    "creado_en": "2026-11-17T04:15:00.000Z"
+  }
+]
+```
+
+#### `POST /api/productos` (`201 Created`) / `GET /api/productos/:id` (`200 OK`) / `PUT /api/productos/:id` (`200 OK`)
+```json
+{
+  "id": 7,
+  "nombre": "Webcam Logitech Brio 4K",
+  "descripcion": "Cámara web Ultra HD 4K con HDR y micrófonos duales con cancelación de ruido.",
+  "categoria": "Perifericos",
+  "precio": 169.99,
+  "creado_en": "2026-11-18T00:25:00.000Z"
+}
+```
+
+#### `DELETE /api/productos/:id` (`200 OK`)
+```json
+{
+  "mensaje": "Producto eliminado correctamente",
+  "producto": {
+    "id": 7,
+    "nombre": "Webcam Logitech Brio 4K",
+    "descripcion": "Cámara web Ultra HD 4K con HDR y micrófonos duales con cancelación de ruido.",
+    "categoria": "Perifericos",
+    "precio": 169.99
+  }
+}
+```
+
+### Criterio de Validación y Respuestas de Error (`400`, `422` y `404`)
+
+La API diferencia de forma estricta entre errores sintácticos/estructurales (`400 Bad Request`) y errores semánticos o de reglas de negocio (`422 Unprocessable Entity`):
+
+* **`400 Bad Request`** — Se devuelve cuando la estructura de la petición es inválida o faltan datos obligatorios:
+  * El parámetro `:id` no cumple el formato de entero positivo estricto (`/^[1-9]\d*$/`, por ejemplo `0`, `-1` o `abc`):
+    ```json
+    {
+      "error": "ID inválido",
+      "mensaje": "El identificador del producto debe ser un número entero positivo"
+    }
+    ```
+  * Faltan campos obligatorios (`nombre`, `descripcion`, `categoria`, `precio`), algún campo de texto no es un string válido o queda vacío tras `.trim()`, o `precio` es `undefined`, `null` o `""`:
+    ```json
+    {
+      "error": "Campos obligatorios incompletos",
+      "mensaje": "Los campos nombre, descripcion, categoria y precio son obligatorios y no pueden estar vacíos"
+    }
+    ```
+  * El cuerpo JSON enviado está malformado (interceptado por el manejador global de errores).
+
+* **`422 Unprocessable Entity`** — Se devuelve cuando todos los campos obligatorios están presentes y bien estructurados, pero incumplen reglas semánticas de negocio o restricciones del esquema:
+  * `precio` es booleano, arreglo, objeto, `NaN`, no finito o menor o igual a cero (`<= 0`):
+    ```json
+    {
+      "error": "Precio inválido",
+      "mensaje": "El precio debe ser un valor numérico estrictamente mayor que cero"
+    }
+    ```
+  * `nombre` supera los 150 caracteres o `categoria` supera los 80 caracteres:
+    ```json
+    {
+      "error": "Longitud de campo excedida",
+      "mensaje": "El nombre no puede exceder 150 caracteres y la categoría no puede exceder 80 caracteres"
+    }
+    ```
+
+* **`404 Not Found`** — Se devuelve cuando el `:id` es válido, pero no existe en la base de datos:
+  ```json
+  {
+    "error": "Producto no encontrado",
+    "mensaje": "No existe un producto con el ID especificado"
+  }
+  ```
